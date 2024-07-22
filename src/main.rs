@@ -1,7 +1,9 @@
 #![warn(clippy::all, rust_2018_idioms)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
+use eframe_template::TemplateApp;
 use std::{cell::RefCell, rc::Rc};
+use wasm_bindgen::prelude::*;
 
 use eframe::wasm_bindgen::{closure::Closure, JsCast, JsValue};
 use web_sys::{AudioContext, MediaStream, MediaStreamConstraints};
@@ -29,26 +31,83 @@ fn main() -> eframe::Result {
     )
 }
 
+#[derive(Clone)]
+#[wasm_bindgen]
+pub struct WebHandle {
+    runner: eframe::WebRunner,
+}
+
+#[wasm_bindgen]
+impl WebHandle {
+    /// Installs a panic hook, then returns.
+    #[allow(clippy::new_without_default)]
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        // Redirect [`log`] message to `console.log` and friends:
+        eframe::WebLogger::init(log::LevelFilter::Debug).ok();
+
+        Self {
+            runner: eframe::WebRunner::new(),
+        }
+    }
+
+    /// Call this once from JavaScript to start your app.
+    #[wasm_bindgen]
+    pub async fn start(&self, canvas_id: &str) -> Result<(), wasm_bindgen::JsValue> {
+        self.runner
+            .start(
+                canvas_id,
+                eframe::WebOptions::default(),
+                Box::new(|cc| Ok(Box::new(TemplateApp::new(cc)))),
+            )
+            .await
+    }
+
+    // The following are optional:
+
+    /// Shut down eframe and clean up resources.
+    #[wasm_bindgen]
+    pub fn destroy(&self) {
+        self.runner.destroy();
+    }
+
+    /// Example on how to call into your app from JavaScript.
+    #[wasm_bindgen]
+    pub fn update(&mut self, data: &[u8]) {
+        if let Some(app) = self.runner.app_mut::<TemplateApp>() {
+            app.draw(data);
+        }
+    }
+
+    /// The JavaScript can check whether or not your app has crashed:
+    #[wasm_bindgen]
+    pub fn has_panicked(&self) -> bool {
+        self.runner.has_panicked()
+    }
+
+    #[wasm_bindgen]
+    pub fn panic_message(&self) -> Option<String> {
+        self.runner.panic_summary().map(|s| s.message())
+    }
+
+    #[wasm_bindgen]
+    pub fn panic_callstack(&self) -> Option<String> {
+        self.runner.panic_summary().map(|s| s.callstack())
+    }
+}
+
 // When compiling to web using trunk:
 #[cfg(target_arch = "wasm32")]
 fn main() {
     // Redirect `log` message to `console.log` and friends:
     eframe::WebLogger::init(log::LevelFilter::Debug).ok();
 
-    let web_options = eframe::WebOptions::default();
+    let handle = WebHandle::new();
 
-    wasm_bindgen_futures::spawn_local(async {
-        let start_result = eframe::WebRunner::new()
-            .start(
-                "the_canvas_id",
-                web_options,
-                Box::new(|cc| Ok(Box::new(eframe_template::TemplateApp::new(cc)))),
-            )
-            .await;
+    wasm_bindgen_futures::spawn_local(async move {
+        let start_result = handle.start("the_canvas_id").await;
 
-        wasm_bindgen_futures::spawn_local(async {
-            setup_audio_device().await;
-        });
+        setup_audio_device(handle).await;
 
         // Remove the loading text and spinner:
         let loading_text = web_sys::window()
@@ -70,7 +129,7 @@ fn main() {
     });
 }
 
-async fn setup_audio_device() {
+async fn setup_audio_device(handle: WebHandle) {
     let navigator: web_sys::Navigator = web_sys::window()
         .and_then(|w| Some(w.navigator()))
         .expect("cannot find navigator");
@@ -99,13 +158,13 @@ async fn setup_audio_device() {
             .connect_with_audio_node(&analyzer)
             .expect("connect to analyzer failed");
         let mut buffer = vec![0; buffer_size as usize];
+        let mut handle = handle.clone();
 
         animate_limited(
             move || {
                 analyzer.get_byte_time_domain_data(&mut buffer);
 
-                web_sys::console::debug_1(&JsValue::from_f64(buffer[0] as f64));
-                web_sys::console::debug_1(&JsValue::from_f64(buffer[1] as f64));
+                handle.update(&buffer);
             },
             60,
         );
