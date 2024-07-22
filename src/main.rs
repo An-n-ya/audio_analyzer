@@ -74,7 +74,7 @@ impl WebHandle {
     /// Example on how to call into your app from JavaScript.
     #[wasm_bindgen]
     pub fn update(&mut self, data: &[u8]) {
-        if let Some(app) = self.runner.app_mut::<TemplateApp>() {
+        if let Some(ref mut app) = self.runner.app_mut::<TemplateApp>() {
             app.draw(data);
         }
     }
@@ -163,8 +163,7 @@ async fn setup_audio_device(handle: WebHandle) {
         animate_limited(
             move || {
                 analyzer.get_byte_time_domain_data(&mut buffer);
-
-                handle.update(&buffer);
+                // handle.update(&buffer);
             },
             60,
         );
