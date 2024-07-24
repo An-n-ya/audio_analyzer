@@ -163,7 +163,7 @@ async fn setup_audio_device(handle: WebHandle) {
         animate_limited(
             move || {
                 analyzer.get_byte_time_domain_data(&mut buffer);
-                // handle.update(&buffer);
+                handle.update(&buffer);
             },
             60,
         );

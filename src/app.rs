@@ -9,10 +9,65 @@ pub struct TemplateApp {
     // Example stuff:
     label: String,
 
-    data: Vec<u8>,
+    data: RingBuffer,
 
     #[serde(skip)] // This how you opt-out of serialization of a field
     value: f32,
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+struct RingBuffer {
+    pub head: usize,
+    pub size: usize,
+    buf: Vec<Vec<u8>>,
+}
+
+impl Default for RingBuffer {
+    fn default() -> Self {
+        let mut buf = vec![];
+        for _ in 0..Self::BUF_SIZE {
+            buf.push(vec![]);
+        }
+        Self {
+            head: 0,
+            size: 0,
+            buf,
+        }
+    }
+}
+
+impl RingBuffer {
+    const BUF_SIZE: usize = 20;
+    pub fn push(&mut self, data: Vec<u8>) {
+        let ind = if self.head == 0 {
+            Self::BUF_SIZE - 1
+        } else {
+            self.head
+        };
+        self.buf[ind] = data;
+        self.head += 1;
+        self.head %= Self::BUF_SIZE;
+    }
+    pub fn len(&self) -> usize {
+        Self::BUF_SIZE * self.size
+    }
+    pub fn set_size(&mut self, size: usize) {
+        self.size = size;
+    }
+    pub fn get(&mut self, ind: usize) -> u8 {
+        assert!(self.size > 0);
+        let buf_ind = ind / self.size;
+        let sub_ind = ind % self.size;
+        let buf_ind = (self.head + buf_ind) % Self::BUF_SIZE;
+        while buf_ind >= self.buf.len() {
+            self.buf.push(vec![]);
+        }
+        let selected_buf = &self.buf[buf_ind];
+        if selected_buf.len() == 0 {
+            return 128;
+        }
+        self.buf[buf_ind][sub_ind]
+    }
 }
 
 impl Default for TemplateApp {
@@ -20,7 +75,7 @@ impl Default for TemplateApp {
         Self {
             // Example stuff:
             label: "Hello World!".to_owned(),
-            data: vec![],
+            data: RingBuffer::default(),
             value: 2.7,
         }
     }
@@ -101,7 +156,8 @@ impl TemplateApp {
     }
 
     pub fn draw(&mut self, data: &[u8]) {
-        self.data = Vec::from(data);
+        self.data.set_size(data.len());
+        self.data.push(Vec::from(data));
         // if data.iter().all(|n| *n == 128) {
         //     web_sys::console::debug_1(&JsValue::from_bool(true));
         // } else {
@@ -111,7 +167,7 @@ impl TemplateApp {
         // web_sys::console::debug_1(&JsValue::from_f64(data[1] as f64));
     }
 
-    fn draw_line(&self, ui: &mut Ui) {
+    fn draw_line(&mut self, ui: &mut Ui) {
         let color = if ui.visuals().dark_mode {
             Color32::from_additive_luminance(196)
         } else {
@@ -130,7 +186,7 @@ impl TemplateApp {
             let points: Vec<Pos2> = (0..n)
                 .map(|i| {
                     let t = i as f64 / (n as f64);
-                    let y = (self.data[i] as f64 - 128.0) / 128.0;
+                    let y = (self.data.get(i) as f64 - 128.0) / 128.0;
                     to_screen * pos2(t as f32, y as f32)
                 })
                 .collect();
