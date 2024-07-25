@@ -1,6 +1,7 @@
 use eframe::App;
 use egui::{epaint::PathStroke, pos2, vec2, Color32, Frame, Pos2, Rect, Ui};
-use wasm_bindgen::JsValue;
+
+use crate::data::{Chunk, Data};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -10,6 +11,10 @@ pub struct TemplateApp {
     label: String,
 
     data: RingBuffer,
+
+    db: Data,
+
+    cur_pos: usize,
 
     paused: bool,
 
@@ -22,6 +27,12 @@ struct RingBuffer {
     pub head: usize,
     pub size: usize,
     buf: Vec<Vec<u8>>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+struct View {
+    end: usize,
+    start: usize,
 }
 
 impl Default for RingBuffer {
@@ -78,6 +89,8 @@ impl Default for TemplateApp {
             // Example stuff:
             label: "Hello World!".to_owned(),
             data: RingBuffer::default(),
+            db: Data::default(),
+            cur_pos: 0,
             value: 2.7,
             paused: false,
         }
@@ -159,6 +172,10 @@ impl TemplateApp {
         Default::default()
     }
 
+    pub fn clear(&mut self) {
+        self.db.clear();
+    }
+
     pub fn is_paused(&self) -> bool {
         self.paused
     }
@@ -166,6 +183,8 @@ impl TemplateApp {
     pub fn draw(&mut self, data: &[u8]) {
         self.data.set_size(data.len());
         self.data.push(Vec::from(data));
+        self.db.push(Chunk::new(self.cur_pos, Vec::from(data)));
+        self.cur_pos += 1;
     }
 
     fn draw_line(&mut self, ui: &mut Ui) {

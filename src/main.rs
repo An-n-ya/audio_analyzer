@@ -78,6 +78,12 @@ impl WebHandle {
         }
     }
     #[wasm_bindgen]
+    pub fn clear(&mut self) {
+        if let Some(ref mut app) = self.runner.app_mut::<TemplateApp>() {
+            app.clear();
+        }
+    }
+    #[wasm_bindgen]
     pub fn is_paused(&mut self) -> bool {
         if let Some(ref mut app) = self.runner.app_mut::<TemplateApp>() {
             app.is_paused()
@@ -136,7 +142,8 @@ fn main() {
     });
 }
 
-async fn setup_audio_device(handle: WebHandle) {
+async fn setup_audio_device(mut handle: WebHandle) {
+    handle.clear();
     let navigator: web_sys::Navigator = web_sys::window()
         .and_then(|w| Some(w.navigator()))
         .expect("cannot find navigator");
