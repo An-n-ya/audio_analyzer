@@ -71,11 +71,18 @@ impl WebHandle {
         self.runner.destroy();
     }
 
-    /// Example on how to call into your app from JavaScript.
     #[wasm_bindgen]
     pub fn update(&mut self, data: &[u8]) {
         if let Some(ref mut app) = self.runner.app_mut::<TemplateApp>() {
             app.draw(data);
+        }
+    }
+    #[wasm_bindgen]
+    pub fn is_paused(&mut self) -> bool {
+        if let Some(ref mut app) = self.runner.app_mut::<TemplateApp>() {
+            app.is_paused()
+        } else {
+            false
         }
     }
 
@@ -160,8 +167,21 @@ async fn setup_audio_device(handle: WebHandle) {
         let mut buffer = vec![0; buffer_size as usize];
         let mut handle = handle.clone();
 
+        let mut pause_state = false;
+
         animate_limited(
             move || {
+                if pause_state && !handle.is_paused() {
+                    let _ = audio_ctx.resume();
+                    pause_state = false;
+                } else if !pause_state && handle.is_paused() {
+                    let _ = audio_ctx.suspend();
+                    pause_state = true;
+                    return;
+                }
+                if pause_state {
+                    return;
+                }
                 analyzer.get_byte_time_domain_data(&mut buffer);
                 handle.update(&buffer);
             },

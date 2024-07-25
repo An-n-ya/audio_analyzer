@@ -11,6 +11,8 @@ pub struct TemplateApp {
 
     data: RingBuffer,
 
+    paused: bool,
+
     #[serde(skip)] // This how you opt-out of serialization of a field
     value: f32,
 }
@@ -77,6 +79,7 @@ impl Default for TemplateApp {
             label: "Hello World!".to_owned(),
             data: RingBuffer::default(),
             value: 2.7,
+            paused: false,
         }
     }
 }
@@ -85,6 +88,7 @@ impl App for TemplateApp {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, self);
     }
+
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:
@@ -155,16 +159,13 @@ impl TemplateApp {
         Default::default()
     }
 
+    pub fn is_paused(&self) -> bool {
+        self.paused
+    }
+
     pub fn draw(&mut self, data: &[u8]) {
         self.data.set_size(data.len());
         self.data.push(Vec::from(data));
-        // if data.iter().all(|n| *n == 128) {
-        //     web_sys::console::debug_1(&JsValue::from_bool(true));
-        // } else {
-        //     web_sys::console::debug_1(&JsValue::from_bool(false));
-        // }
-        // web_sys::console::debug_1(&JsValue::from_f64(data[0] as f64));
-        // web_sys::console::debug_1(&JsValue::from_f64(data[1] as f64));
     }
 
     fn draw_line(&mut self, ui: &mut Ui) {
@@ -173,6 +174,11 @@ impl TemplateApp {
         } else {
             Color32::from_black_alpha(240)
         };
+        ui.input(|i| {
+            if i.key_pressed(egui::Key::Space) {
+                self.paused = !self.paused;
+            }
+        });
         Frame::canvas(ui.style()).show(ui, |ui| {
             ui.ctx().request_repaint();
             let desired_size = ui.available_width() * vec2(1.0, 0.35);
