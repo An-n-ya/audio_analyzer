@@ -1,17 +1,20 @@
+use std::sync::{Arc, Mutex};
+
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue};
-use web_sys::{IdbDatabase, IdbObjectStore, IdbTransactionMode};
+use wasm_bindgen_futures::JsFuture;
+use web_sys::{IdbDatabase, IdbObjectStore, IdbRequest, IdbTransactionMode};
 
 use crate::Log;
 
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct Data {
-    current_chunks: Vec<Chunk>,
+    pub current_chunks: Vec<Chunk>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct Chunk {
-    id: usize,
-    data: Vec<u8>,
+    pub id: usize,
+    pub data: Vec<u8>,
 }
 
 impl Chunk {
@@ -35,34 +38,52 @@ impl Default for Data {
 }
 
 impl Data {
-    const MAX_SIZE: usize = 10;
+    pub const MAX_SIZE: usize = 10;
     pub fn clear(&mut self) {
         self.current_chunks.clear();
+        Self::request_db(|store| {
+            store.clear().unwrap();
+        })
     }
     pub fn push(&mut self, data: Chunk) {
         let id = data.id;
         self.current_chunks.push(data);
-        Self::log(&format!("{}", self.current_chunks.len()));
         if self.current_chunks.len() == Self::MAX_SIZE {
-            Self::log("hello");
+            Self::log(&format!("data_id: {}", id));
             let chunks = self.current_chunks.clone();
             Self::request_db(move |store| {
                 let value = serde_wasm_bindgen::to_value(&chunks).unwrap();
-                store
-                    .add_with_key(&value, &JsValue::from_f64(id as f64))
-                    .unwrap();
-                Self::log("write to indexedDB success");
+                if let Ok(_) = store.add_with_key(&value, &JsValue::from_f64(id as f64)) {
+                    Self::log("write to indexedDB success");
+                }
             });
             self.current_chunks.clear();
         }
     }
 
-    fn get_from_db(id: usize) {
+    pub fn get_from_db(&self, id: usize, container: Arc<Mutex<Vec<Chunk>>>) {
+        if self.current_chunks.len() > 0 && self.current_chunks[0].id <= id {
+            let mut a = container.lock().unwrap();
+            *a = self.current_chunks.clone();
+            return;
+        }
         Self::request_db(move |store| {
             let request = store
                 .get_all_with_key(&JsValue::from_f64(id as f64))
                 .unwrap();
-        })
+            let container = container.clone();
+            let on_success = Closure::wrap(Box::new(move |event: web_sys::Event| {
+                let target = event.target().unwrap();
+                let request = target.dyn_into::<IdbRequest>().unwrap();
+                let res = request.result().unwrap();
+                let chunk: Vec<Chunk> = serde_wasm_bindgen::from_value(res).unwrap();
+                let mut a = container.lock().unwrap();
+                *a = chunk;
+            }) as Box<dyn FnMut(_)>);
+
+            request.set_onsuccess(Some(on_success.as_ref().unchecked_ref()));
+            on_success.forget();
+        });
     }
 
     fn request_db(f: impl Fn(IdbObjectStore) + 'static) {

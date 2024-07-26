@@ -1,6 +1,7 @@
 #![warn(clippy::all, rust_2018_idioms)]
 
 mod app;
+mod buffer;
 mod data;
 pub use app::TemplateApp;
 use wasm_bindgen::JsValue;

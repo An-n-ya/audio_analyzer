@@ -1,7 +1,13 @@
-use eframe::App;
-use egui::{epaint::PathStroke, pos2, vec2, Color32, Frame, Pos2, Rect, Ui};
+use std::collections::LinkedList;
 
-use crate::data::{Chunk, Data};
+use eframe::App;
+use egui::{epaint::PathStroke, mutex::Mutex, pos2, vec2, Color32, Frame, Pos2, Rect, Ui};
+
+use crate::{
+    buffer::Buffer,
+    data::{Chunk, Data},
+    Log,
+};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -10,9 +16,7 @@ pub struct TemplateApp {
     // Example stuff:
     label: String,
 
-    data: RingBuffer,
-
-    db: Data,
+    buf: Buffer,
 
     cur_pos: usize,
 
@@ -29,10 +33,10 @@ struct RingBuffer {
     buf: Vec<Vec<u8>>,
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
-struct View {
-    end: usize,
-    start: usize,
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct View {
+    pub start: isize,
+    pub end: isize,
 }
 
 impl Default for RingBuffer {
@@ -88,8 +92,7 @@ impl Default for TemplateApp {
         Self {
             // Example stuff:
             label: "Hello World!".to_owned(),
-            data: RingBuffer::default(),
-            db: Data::default(),
+            buf: Buffer::new(),
             cur_pos: 0,
             value: 2.7,
             paused: false,
@@ -157,6 +160,12 @@ impl App for TemplateApp {
     }
 }
 
+impl Log for TemplateApp {
+    fn name() -> &'static str {
+        "TemplateAPP"
+    }
+}
+
 impl TemplateApp {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
@@ -173,7 +182,8 @@ impl TemplateApp {
     }
 
     pub fn clear(&mut self) {
-        self.db.clear();
+        self.cur_pos = 1;
+        self.buf.clear();
     }
 
     pub fn is_paused(&self) -> bool {
@@ -181,9 +191,8 @@ impl TemplateApp {
     }
 
     pub fn draw(&mut self, data: &[u8]) {
-        self.data.set_size(data.len());
-        self.data.push(Vec::from(data));
-        self.db.push(Chunk::new(self.cur_pos, Vec::from(data)));
+        self.buf.push(Chunk::new(self.cur_pos, Vec::from(data)));
+        self.buf.set_max_id(self.cur_pos);
         self.cur_pos += 1;
     }
 
@@ -198,6 +207,10 @@ impl TemplateApp {
                 self.paused = !self.paused;
             }
         });
+        let view = View {
+            start: self.cur_pos as isize - 10,
+            end: self.cur_pos as isize,
+        };
         Frame::canvas(ui.style()).show(ui, |ui| {
             ui.ctx().request_repaint();
             let desired_size = ui.available_width() * vec2(1.0, 0.35);
@@ -206,12 +219,13 @@ impl TemplateApp {
                 Rect::from_x_y_ranges(0.0..=1.0, -1.0..=1.0),
                 rect,
             );
-            let n = self.data.len();
+            let data = self.buf.get_data(&view);
+            let n = data.len();
             let mut shapes = vec![];
             let points: Vec<Pos2> = (0..n)
                 .map(|i| {
                     let t = i as f64 / (n as f64);
-                    let y = (self.data.get(i) as f64 - 128.0) / 128.0;
+                    let y = (data[i] as f64 - 128.0) / 128.0;
                     to_screen * pos2(t as f32, y as f32)
                 })
                 .collect();
