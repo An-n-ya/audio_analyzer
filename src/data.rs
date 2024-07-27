@@ -38,7 +38,7 @@ impl Default for Data {
 }
 
 impl Data {
-    pub const MAX_SIZE: usize = 10;
+    pub const MAX_SIZE: usize = 100;
     pub fn clear(&mut self) {
         self.current_chunks.clear();
         Self::request_db(|store| {
@@ -49,7 +49,7 @@ impl Data {
         let id = data.id;
         self.current_chunks.push(data);
         if self.current_chunks.len() == Self::MAX_SIZE {
-            Self::log(&format!("data_id: {}", id));
+            // Self::log(&format!("data_id: {}", id));
             let chunks = self.current_chunks.clone();
             Self::request_db(move |store| {
                 let value = serde_wasm_bindgen::to_value(&chunks).unwrap();
