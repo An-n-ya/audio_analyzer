@@ -132,6 +132,13 @@ impl Buffer {
         //     i, start, start_id, size
         // ));
         // Self::log(&format!("buf_len {}", self.buf.len()));
+        while let Some(id) = self.get_first_chunk_last_id() {
+            if id < start {
+                self.buf.pop_front();
+            } else {
+                break;
+            }
+        }
         let data = self.buf.iter().fold(vec![], |mut acc, value| {
             let data = value.lock().unwrap();
             let data = data.iter().fold(vec![], |mut acc, value| {
@@ -144,7 +151,19 @@ impl Buffer {
             acc
         });
         res.extend(data);
-        // Self::log(&format!("data_len {}", res.len()));
+        Self::log(&format!("data_len {}", res.len()));
+        Self::log(&format!("buf_len {}", self.buf.len()));
         res
+    }
+
+    fn get_first_chunk_last_id(&self) -> Option<usize> {
+        if let Some(v) = self.buf.front() {
+            let v = v.lock().unwrap();
+            assert!(v.len() > 0);
+            let last = &v[v.len() - 1];
+            Some(last.id)
+        } else {
+            None
+        }
     }
 }

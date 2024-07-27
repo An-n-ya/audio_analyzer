@@ -1,5 +1,3 @@
-use std::collections::LinkedList;
-
 use eframe::App;
 use egui::{epaint::PathStroke, mutex::Mutex, pos2, vec2, Color32, Frame, Pos2, Rect, Ui};
 
@@ -18,7 +16,9 @@ pub struct TemplateApp {
 
     buf: Buffer,
 
-    cur_pos: usize,
+    max_id: usize,
+
+    cursor_pos: usize,
 
     paused: bool,
 
@@ -93,7 +93,8 @@ impl Default for TemplateApp {
             // Example stuff:
             label: "Hello World!".to_owned(),
             buf: Buffer::new(),
-            cur_pos: 0,
+            max_id: 1,
+            cursor_pos: 1,
             value: 2.7,
             paused: false,
         }
@@ -182,7 +183,7 @@ impl TemplateApp {
     }
 
     pub fn clear(&mut self) {
-        self.cur_pos = 1;
+        self.max_id = 1;
         self.buf.clear();
     }
 
@@ -191,9 +192,10 @@ impl TemplateApp {
     }
 
     pub fn draw(&mut self, data: &[u8]) {
-        self.buf.push(Chunk::new(self.cur_pos, Vec::from(data)));
-        self.buf.set_max_id(self.cur_pos);
-        self.cur_pos += 1;
+        self.buf.push(Chunk::new(self.max_id, Vec::from(data)));
+        self.buf.set_max_id(self.max_id);
+        self.max_id += 1;
+        self.cursor_pos = self.max_id;
     }
 
     fn draw_line(&mut self, ui: &mut Ui) {
@@ -206,10 +208,23 @@ impl TemplateApp {
             if i.key_pressed(egui::Key::Space) {
                 self.paused = !self.paused;
             }
+            if self.paused {
+                let scroll_value = i.smooth_scroll_delta.y;
+                let raw_scroll_value = i.raw_scroll_delta.y;
+                if raw_scroll_value < 0.0 {
+                    self.cursor_pos = self.max_id.min(self.cursor_pos + 1);
+                } else if raw_scroll_value > 0.0 {
+                    self.cursor_pos = self.cursor_pos.checked_sub(1).unwrap_or(0);
+                }
+                Self::log(&format!(
+                    "scroll {}, raw {}",
+                    scroll_value, raw_scroll_value
+                ));
+            }
         });
         let view = View {
-            start: self.cur_pos as isize - 10,
-            end: self.cur_pos as isize,
+            start: self.cursor_pos as isize - 10,
+            end: self.cursor_pos as isize,
         };
         Frame::canvas(ui.style()).show(ui, |ui| {
             ui.ctx().request_repaint();
