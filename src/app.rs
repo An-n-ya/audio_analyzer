@@ -209,17 +209,12 @@ impl TemplateApp {
                 self.paused = !self.paused;
             }
             if self.paused {
-                let scroll_value = i.smooth_scroll_delta.y;
                 let raw_scroll_value = i.raw_scroll_delta.y;
                 if raw_scroll_value < 0.0 {
                     self.cursor_pos = self.max_id.min(self.cursor_pos + 1);
                 } else if raw_scroll_value > 0.0 {
                     self.cursor_pos = self.cursor_pos.checked_sub(1).unwrap_or(0);
                 }
-                Self::log(&format!(
-                    "scroll {}, raw {}",
-                    scroll_value, raw_scroll_value
-                ));
             }
         });
         let view = View {

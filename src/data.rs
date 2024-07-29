@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 
+use js_sys::Array;
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{IdbDatabase, IdbObjectStore, IdbRequest, IdbTransactionMode};
@@ -38,7 +39,7 @@ impl Default for Data {
 }
 
 impl Data {
-    pub const MAX_SIZE: usize = 100;
+    pub const MAX_SIZE: usize = 10;
     pub fn clear(&mut self) {
         self.current_chunks.clear();
         Self::request_db(|store| {
@@ -76,7 +77,18 @@ impl Data {
                 let target = event.target().unwrap();
                 let request = target.dyn_into::<IdbRequest>().unwrap();
                 let res = request.result().unwrap();
-                let chunk: Vec<Chunk> = serde_wasm_bindgen::from_value(res).unwrap();
+                // Self::log(&format!("request id {}, value: {:?}", id, res));
+                let arr = Array::from(&res);
+                let arr = Array::from(&arr.at(0));
+                let chunk = arr
+                    .to_vec()
+                    .iter()
+                    .map(|n| {
+                        // Self::log(&format!("js_value: {:?}", n));
+                        return serde_wasm_bindgen::from_value(n.clone()).unwrap();
+                    })
+                    .collect();
+                // let chunk: Vec<Chunk> = serde_wasm_bindgen::from_value(res).unwrap();
                 let mut a = container.lock().unwrap();
                 *a = chunk;
             }) as Box<dyn FnMut(_)>);

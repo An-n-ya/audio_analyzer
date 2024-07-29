@@ -1,0 +1,4 @@
+- [ ] cursor
+- [ ] timeline ui
+- [ ] zoom in/out
+- [ ] spectrum graph

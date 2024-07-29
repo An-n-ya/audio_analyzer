@@ -159,7 +159,11 @@ impl Buffer {
     fn get_first_chunk_last_id(&self) -> Option<usize> {
         if let Some(v) = self.buf.front() {
             let v = v.lock().unwrap();
-            assert!(v.len() > 0);
+            if v.len() == 0 {
+                // is waiting for data
+                return None;
+            }
+            // assert!(v.len() > 0);
             let last = &v[v.len() - 1];
             Some(last.id)
         } else {

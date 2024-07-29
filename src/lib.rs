@@ -8,7 +8,7 @@ use wasm_bindgen::JsValue;
 
 pub trait Log {
     fn log(msg: &str) {
-        if Self::name() == "TemplateAPP" {
+        if Self::name() == "Data" {
             web_sys::console::debug_1(&JsValue::from_str(&format!("[{}] {}", Self::name(), msg)));
         }
     }
