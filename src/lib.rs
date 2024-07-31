@@ -3,6 +3,7 @@
 mod app;
 mod buffer;
 mod data;
+mod widgets;
 pub use app::TemplateApp;
 use wasm_bindgen::JsValue;
 

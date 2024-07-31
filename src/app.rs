@@ -4,6 +4,7 @@ use egui::{epaint::PathStroke, mutex::Mutex, pos2, vec2, Color32, Frame, Pos2, R
 use crate::{
     buffer::Buffer,
     data::{Chunk, Data},
+    widgets::timeline::Timeline,
     Log,
 };
 
@@ -142,7 +143,9 @@ impl App for TemplateApp {
 
             ui.separator();
 
-            self.draw_line(ui);
+            let mut timeline = Timeline::new();
+            let body_rect = timeline.show(ui, self);
+            self.draw_line(ui, body_rect);
 
             ui.add(egui::github_link_file!(
                 "https://github.com/emilk/eframe_template/blob/main/",
@@ -198,7 +201,7 @@ impl TemplateApp {
         self.cursor_pos = self.max_id;
     }
 
-    fn draw_line(&mut self, ui: &mut Ui) {
+    fn draw_line(&mut self, ui: &mut Ui, rect: Rect) {
         let color = if ui.visuals().dark_mode {
             Color32::from_additive_luminance(196)
         } else {
@@ -223,8 +226,6 @@ impl TemplateApp {
         };
         Frame::canvas(ui.style()).show(ui, |ui| {
             ui.ctx().request_repaint();
-            let desired_size = ui.available_width() * vec2(1.0, 0.35);
-            let (_id, rect) = ui.allocate_space(desired_size);
             let to_screen = egui::emath::RectTransform::from_to(
                 Rect::from_x_y_ranges(0.0..=1.0, -1.0..=1.0),
                 rect,
@@ -242,6 +243,11 @@ impl TemplateApp {
             shapes.push(egui::epaint::Shape::line(
                 points,
                 PathStroke::new(2.0, color),
+            ));
+            let bar = [to_screen * pos2(0.5, -1.0), to_screen * pos2(0.5, 1.0)];
+            shapes.push(egui::epaint::Shape::line_segment(
+                bar,
+                PathStroke::new(1.0, color),
             ));
             ui.painter().extend(shapes);
         });
