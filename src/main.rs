@@ -2,11 +2,15 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
 use eframe_template::TemplateApp;
+use js_sys::Date;
 use std::{cell::RefCell, rc::Rc};
 use wasm_bindgen::prelude::*;
 
 use eframe::wasm_bindgen::{closure::Closure, JsCast, JsValue};
-use web_sys::{AudioContext, MediaStream, MediaStreamConstraints};
+use web_sys::{
+    console::{debug_1, time_log},
+    AudioContext, MediaStream, MediaStreamConstraints,
+};
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
@@ -190,6 +194,8 @@ async fn setup_audio_device(mut handle: WebHandle) {
                     return;
                 }
                 analyzer.get_byte_time_domain_data(&mut buffer);
+                // TODO: pass time to APP
+                debug_1(&JsValue::from_f64((Date::now() / 1000.0).floor()));
                 handle.update(&buffer);
             },
             60,
