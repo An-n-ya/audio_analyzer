@@ -92,7 +92,7 @@ impl WebHandle {
         if let Some(ref mut app) = self.runner.app_mut::<TemplateApp>() {
             app.is_paused()
         } else {
-            false
+            true
         }
     }
 
@@ -178,10 +178,15 @@ async fn setup_audio_device(mut handle: WebHandle) {
         let mut buffer = vec![0; buffer_size as usize];
         let mut handle = handle.clone();
 
-        let mut pause_state = false;
+        let mut pause_state = true;
 
         animate_limited(
             move || {
+                // debug_1(&JsValue::from_str(&format!(
+                //     "pause_state {}, handle.is_paused {}",
+                //     pause_state,
+                //     handle.is_paused()
+                // )));
                 if pause_state && !handle.is_paused() {
                     let _ = audio_ctx.resume();
                     pause_state = false;
@@ -194,8 +199,6 @@ async fn setup_audio_device(mut handle: WebHandle) {
                     return;
                 }
                 analyzer.get_byte_time_domain_data(&mut buffer);
-                // TODO: pass time to APP
-                debug_1(&JsValue::from_f64((Date::now() / 1000.0).floor()));
                 handle.update(&buffer);
             },
             60,

@@ -22,6 +22,11 @@ impl Log for Buffer {
     }
 }
 
+pub struct DataRange {
+    pub data: Vec<u8>,
+    pub time_range: Option<(usize, usize)>,
+}
+
 impl Buffer {
     pub fn new() -> Self {
         Self {
@@ -112,7 +117,7 @@ impl Buffer {
         }
     }
 
-    pub fn get_data(&mut self, view: &View) -> Vec<u8> {
+    pub fn get_data(&mut self, view: &View) -> DataRange {
         assert!(view.end > view.start);
         // Self::log(&format!("get data {:?}", view));
         let mut res = vec![];
@@ -139,10 +144,15 @@ impl Buffer {
                 break;
             }
         }
+        let (mut start_time, mut end_time) = (None, None);
         let data = self.buf.iter().fold(vec![], |mut acc, value| {
             let data = value.lock().unwrap();
             let data = data.iter().fold(vec![], |mut acc, value| {
                 if value.id >= start && value.id <= end {
+                    if start_time.is_none() {
+                        start_time = Some(value.time);
+                    }
+                    end_time = Some(value.time);
                     acc.extend(value.data.clone());
                 }
                 acc
@@ -153,7 +163,15 @@ impl Buffer {
         res.extend(data);
         Self::log(&format!("data_len {}", res.len()));
         Self::log(&format!("buf_len {}", self.buf.len()));
-        res
+        let time_range = if start_time.is_none() {
+            None
+        } else {
+            Some((start_time.unwrap(), end_time.unwrap()))
+        };
+        DataRange {
+            data: res,
+            time_range,
+        }
     }
 
     fn get_first_chunk_last_id(&self) -> Option<usize> {

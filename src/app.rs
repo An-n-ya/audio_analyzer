@@ -1,10 +1,11 @@
 use eframe::App;
 use egui::{epaint::PathStroke, mutex::Mutex, pos2, vec2, Color32, Frame, Pos2, Rect, Ui};
+use js_sys::Date;
 
 use crate::{
     buffer::Buffer,
     data::{Chunk, Data},
-    widgets::timeline::Timeline,
+    widgets::timeline::{Timeline, TimelineApi},
     Log,
 };
 
@@ -20,10 +21,16 @@ pub struct TemplateApp {
     max_id: usize,
 
     cursor_pos: usize,
+    cursor_time: usize,
 
-    paused: bool,
+    data: Option<Vec<u8>>,
+    range: Option<(usize, usize)>,
 
-    #[serde(skip)] // This how you opt-out of serialization of a field
+    recording_start_time: usize,
+
+    chunk_num: usize,
+
+    paused: bool, // This how you opt-out of serialization of a field
     value: f32,
 }
 
@@ -96,8 +103,13 @@ impl Default for TemplateApp {
             buf: Buffer::new(),
             max_id: 1,
             cursor_pos: 1,
+            recording_start_time: 0,
+            cursor_time: 0,
+            chunk_num: 10,
+            data: None,
+            range: None,
             value: 2.7,
-            paused: false,
+            paused: true,
         }
     }
 }
@@ -143,6 +155,8 @@ impl App for TemplateApp {
 
             ui.separator();
 
+            self.handle_input(ui);
+
             let mut timeline = Timeline::new();
             let body_rect = timeline.show(ui, self);
             self.draw_line(ui, body_rect);
@@ -178,9 +192,9 @@ impl TemplateApp {
 
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
-        if let Some(storage) = cc.storage {
-            return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
-        }
+        // if let Some(storage) = cc.storage {
+        //     return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+        // }
 
         Default::default()
     }
@@ -195,21 +209,23 @@ impl TemplateApp {
     }
 
     pub fn draw(&mut self, data: &[u8]) {
-        self.buf.push(Chunk::new(self.max_id, Vec::from(data)));
+        let current_time = Date::now() as usize;
+        let time = current_time - self.recording_start_time + self.cursor_time;
+        self.buf
+            .push(Chunk::new(self.max_id, Vec::from(data), time));
         self.buf.set_max_id(self.max_id);
         self.max_id += 1;
         self.cursor_pos = self.max_id;
     }
 
-    fn draw_line(&mut self, ui: &mut Ui, rect: Rect) {
-        let color = if ui.visuals().dark_mode {
-            Color32::from_additive_luminance(196)
-        } else {
-            Color32::from_black_alpha(240)
-        };
+    fn handle_input(&mut self, ui: &mut Ui) {
         ui.input(|i| {
             if i.key_pressed(egui::Key::Space) {
                 self.paused = !self.paused;
+                Self::log("paused changed");
+                if !self.paused {
+                    self.recording_start_time = Date::now() as usize;
+                }
             }
             if self.paused {
                 let raw_scroll_value = i.raw_scroll_delta.y;
@@ -220,9 +236,13 @@ impl TemplateApp {
                 }
             }
         });
-        let view = View {
-            start: self.cursor_pos as isize - 10,
-            end: self.cursor_pos as isize,
+    }
+
+    fn draw_line(&mut self, ui: &mut Ui, rect: Rect) {
+        let color = if ui.visuals().dark_mode {
+            Color32::from_additive_luminance(196)
+        } else {
+            Color32::from_black_alpha(240)
         };
         Frame::canvas(ui.style()).show(ui, |ui| {
             ui.ctx().request_repaint();
@@ -230,27 +250,52 @@ impl TemplateApp {
                 Rect::from_x_y_ranges(0.0..=1.0, -1.0..=1.0),
                 rect,
             );
-            let data = self.buf.get_data(&view);
-            let n = data.len();
-            let mut shapes = vec![];
-            let points: Vec<Pos2> = (0..n)
-                .map(|i| {
-                    let t = i as f64 / (n as f64);
-                    let y = (data[i] as f64 - 128.0) / 128.0;
-                    to_screen * pos2(t as f32, y as f32)
-                })
-                .collect();
-            shapes.push(egui::epaint::Shape::line(
-                points,
-                PathStroke::new(2.0, color),
-            ));
-            let bar = [to_screen * pos2(0.5, -1.0), to_screen * pos2(0.5, 1.0)];
-            shapes.push(egui::epaint::Shape::line_segment(
-                bar,
-                PathStroke::new(1.0, color),
-            ));
-            ui.painter().extend(shapes);
+            if let Some(data) = &self.data {
+                let n = data.len();
+                let mut shapes = vec![];
+                let points: Vec<Pos2> = (0..n)
+                    .map(|i| {
+                        let t = i as f64 / (n as f64);
+                        let y = (data[i] as f64 - 128.0) / 128.0;
+                        to_screen * pos2(t as f32, y as f32)
+                    })
+                    .collect();
+                shapes.push(egui::epaint::Shape::line(
+                    points,
+                    PathStroke::new(2.0, color),
+                ));
+                let bar = [to_screen * pos2(0.5, -1.0), to_screen * pos2(0.5, 1.0)];
+                shapes.push(egui::epaint::Shape::line_segment(
+                    bar,
+                    PathStroke::new(1.0, color),
+                ));
+                ui.painter().extend(shapes);
+            }
         });
+    }
+}
+
+impl TimelineApi for TemplateApp {
+    fn flush_data(&mut self) {
+        let view = View {
+            start: self.cursor_pos as isize - self.chunk_num as isize,
+            end: self.cursor_pos as isize,
+        };
+        let data_range = self.buf.get_data(&view);
+        self.data = Some(data_range.data);
+        self.range = data_range.time_range;
+    }
+
+    fn time_range_span(&self) -> f32 {
+        self.chunk_num as f32 * 16.67
+    }
+
+    fn get_time_range(&self) -> (f32, f32) {
+        if let Some((start, end)) = self.range {
+            ((start as f32 - 16.67).max(0.0), end as f32)
+        } else {
+            (0.0, self.time_range_span())
+        }
     }
 }
 

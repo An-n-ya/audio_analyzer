@@ -16,11 +16,12 @@ pub struct Data {
 pub struct Chunk {
     pub id: usize,
     pub data: Vec<u8>,
+    pub time: usize,
 }
 
 impl Chunk {
-    pub fn new(id: usize, data: Vec<u8>) -> Self {
-        Self { id, data }
+    pub fn new(id: usize, data: Vec<u8>, time: usize) -> Self {
+        Self { id, data, time }
     }
 }
 
