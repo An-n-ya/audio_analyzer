@@ -86,7 +86,6 @@ impl Timeline {
         for item in step.iter() {
             let mut start = pos2(item.pos, 0.8);
             let end = pos2(item.pos, 1.0);
-            if cnt % 5 != 0 {}
             if cnt % 5 == 0 {
                 start.y = 0.5;
                 let font_id = FontId::new(10.0, egui::FontFamily::Monospace);

@@ -2,3 +2,5 @@
 - [ ] timeline ui
 - [ ] zoom in/out
 - [ ] spectrum graph
+- [ ] test use AudioBuffer audio_context
+- [ ] use a new structure to record data (must be timely fine granularity)

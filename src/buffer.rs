@@ -24,7 +24,7 @@ impl Log for Buffer {
 
 pub struct DataRange {
     pub data: Vec<u8>,
-    pub time_range: Option<(usize, usize)>,
+    pub time_range: Option<(f32, f32)>,
 }
 
 impl Buffer {
@@ -161,8 +161,8 @@ impl Buffer {
             acc
         });
         res.extend(data);
-        Self::log(&format!("data_len {}", res.len()));
-        Self::log(&format!("buf_len {}", self.buf.len()));
+        // Self::log(&format!("data_len {}", res.len()));
+        // Self::log(&format!("buf_len {}", self.buf.len()));
         let time_range = if start_time.is_none() {
             None
         } else {

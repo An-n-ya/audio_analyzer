@@ -1,10 +1,10 @@
 use eframe::App;
-use egui::{epaint::PathStroke, mutex::Mutex, pos2, vec2, Color32, Frame, Pos2, Rect, Ui};
+use egui::{epaint::PathStroke, pos2, Color32, Frame, Pos2, Rect, Ui};
 use js_sys::Date;
 
 use crate::{
     buffer::Buffer,
-    data::{Chunk, Data},
+    data::Chunk,
     widgets::timeline::{Timeline, TimelineApi},
     Log,
 };
@@ -21,12 +21,12 @@ pub struct TemplateApp {
     max_id: usize,
 
     cursor_pos: usize,
-    cursor_time: usize,
+    cursor_time: f64,
 
     data: Option<Vec<u8>>,
-    range: Option<(usize, usize)>,
+    range: Option<(f32, f32)>,
 
-    recording_start_time: usize,
+    recording_start_time: f64,
 
     chunk_num: usize,
 
@@ -103,8 +103,8 @@ impl Default for TemplateApp {
             buf: Buffer::new(),
             max_id: 1,
             cursor_pos: 1,
-            recording_start_time: 0,
-            cursor_time: 0,
+            recording_start_time: 0.0,
+            cursor_time: 0.0,
             chunk_num: 10,
             data: None,
             range: None,
@@ -208,11 +208,16 @@ impl TemplateApp {
         self.paused
     }
 
-    pub fn draw(&mut self, data: &[u8]) {
-        let current_time = Date::now() as usize;
+    pub fn update(&mut self, data: &[u8]) {
+        // don't use Date::now(), use calculated time instead
+        let current_time = Date::now();
         let time = current_time - self.recording_start_time + self.cursor_time;
+        // Self::log(&format!(
+        //     "current_time {}, update time {}",
+        //     current_time, time
+        // ));
         self.buf
-            .push(Chunk::new(self.max_id, Vec::from(data), time));
+            .push(Chunk::new(self.max_id, Vec::from(data), time as f32));
         self.buf.set_max_id(self.max_id);
         self.max_id += 1;
         self.cursor_pos = self.max_id;
@@ -224,7 +229,8 @@ impl TemplateApp {
                 self.paused = !self.paused;
                 Self::log("paused changed");
                 if !self.paused {
-                    self.recording_start_time = Date::now() as usize;
+                    self.recording_start_time = Date::now();
+                    Self::log(&format!("recording time: {}", self.recording_start_time));
                 }
             }
             if self.paused {
@@ -292,7 +298,12 @@ impl TimelineApi for TemplateApp {
 
     fn get_time_range(&self) -> (f32, f32) {
         if let Some((start, end)) = self.range {
-            ((start as f32 - 16.67).max(0.0), end as f32)
+            if start == end {
+                (0.0, self.time_range_span())
+            } else {
+                // let start = (start - 16.67).max(0.0);
+                (start, start + self.time_range_span())
+            }
         } else {
             (0.0, self.time_range_span())
         }

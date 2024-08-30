@@ -24,24 +24,26 @@ log = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde-wasm-bindgen = "0.4"
 web-sys = { version = "0.3.69", features = [
-    "Navigator",
-    "Permissions",
-    "MediaDevices",
-    "MediaStreamConstraints",
-    "Blob",
-    "AudioContext",
-    "MediaStream",
-    "MediaStreamAudioSourceNode",
     "AnalyserNode",
-    "console",
+    "AudioBuffer",
+    "AudioContext",
+    "AudioBufferSourceNode",
+    "Blob",
+    "DomException",
+    "IdbDatabase",
     "IdbFactory",
+    "IdbObjectStore",
     "IdbOpenDbRequest",
     "IdbRequest",
-    "IdbDatabase",
     "IdbTransaction",
     "IdbTransactionMode",
-    "IdbObjectStore",
-    "DomException",
+    "MediaDevices",
+    "MediaStream",
+    "MediaStreamAudioSourceNode",
+    "MediaStreamConstraints",
+    "Navigator",
+    "Permissions",
+    "console",
 ] }
 wasm-bindgen = "0.2.92"
 js-sys = "0.3.69"
