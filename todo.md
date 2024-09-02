@@ -2,5 +2,6 @@
 - [ ] timeline ui
 - [ ] zoom in/out
 - [ ] spectrum graph
-- [ ] test use AudioBuffer audio_context
+- [x] test use AudioBuffer audio_context
+    - [ ] sine waveform not continuous [cannot fix it]
 - [ ] use a new structure to record data (must be timely fine granularity)

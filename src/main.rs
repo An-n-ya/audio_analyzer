@@ -1,14 +1,17 @@
 #![warn(clippy::all, rust_2018_idioms)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-use eframe_template::{data_source::sine_buffer, TemplateApp};
+use eframe_template::{
+    data_source::{line_buffer, sine_buffer},
+    TemplateApp,
+};
 use std::{cell::RefCell, rc::Rc};
 use wasm_bindgen::prelude::*;
 
 use eframe::wasm_bindgen::{closure::Closure, JsCast, JsValue};
-use web_sys::{AudioContext, MediaStream, MediaStreamConstraints};
+use web_sys::{AudioContext, AudioContextOptions, MediaStream, MediaStreamConstraints};
 
-pub const TEST: bool = true;
+pub const TEST: bool = false;
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
@@ -161,34 +164,24 @@ async fn setup_audio_device(mut handle: WebHandle) {
 
     let on_success = Closure::wrap(Box::new(move |value: JsValue| {
         let media_stream = MediaStream::from(value);
+        // let mut audio_option = AudioContextOptions::new();
+        // audio_option.sample_rate(48000.0);
+        // let audio_ctx = AudioContext::new_with_context_options(&audio_option)
+        //     .expect("cannot instantiate AudioContext");
         let audio_ctx = AudioContext::new().expect("cannot instantiate AudioContext");
         let analyzer = audio_ctx
             .create_analyser()
             .expect("analyzer node creating failed");
         analyzer.set_fft_size(2048);
+        analyzer.set_smoothing_time_constant(0.0);
         let buffer_size = analyzer.frequency_bin_count();
-        // let source = audio_ctx
-        //     .create_buffer_source()
-        //     .expect("cannot create media stream source");
 
-        // let buffer = sine_buffer(&audio_ctx).expect("sine audio buffer");
-        // let data = buffer.get_channel_data(0).unwrap();
-
-        // web_sys::console::debug_1(&JsValue::from_str(&format!(
-        //     "buffer length: {}, v[10000]: {}, duration {}",
-        //     buffer.length(),
-        //     data[10000],
-        //     buffer.duration()
-        // )));
-        // source.set_buffer(Some(&buffer));
-        // let data = source.buffer().unwrap();
-        // web_sys::console::debug_1(&JsValue::from_str(&format!(
-        //     "v[10000]: {}",
-        //     data.get_channel_data(0).unwrap()[10000],
-        // )));
-        // source
-        //     .connect_with_audio_node(&analyzer)
-        //     .expect("connect to analyzer failed");
+        web_sys::console::debug_1(&JsValue::from_str(&format!(
+            "sample_rate: {}, time: {}, buffer_size: {}, hello",
+            audio_ctx.sample_rate(),
+            audio_ctx.current_time(),
+            buffer_size
+        )));
         if TEST {
             let source = audio_ctx
                 .create_buffer_source()
@@ -201,6 +194,13 @@ async fn setup_audio_device(mut handle: WebHandle) {
                 .expect("connect to analyzer failed");
             source.set_loop(true);
             source.start().unwrap();
+            // let osc = audio_ctx.create_oscillator().unwrap();
+            // osc.set_type(web_sys::OscillatorType::Sine);
+            // let param = osc.frequency();
+            // param.set_value(100.0);
+            // osc.connect_with_audio_node(&analyzer)
+            //     .expect("connect to analyzer failed");
+            // osc.start().unwrap();
         } else {
             let source = audio_ctx
                 .create_media_stream_source(&media_stream)
