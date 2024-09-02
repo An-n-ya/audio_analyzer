@@ -117,21 +117,13 @@ impl Buffer {
         }
     }
 
-    pub fn get_data(&mut self, view: &View) -> DataRange {
+    pub fn get_data(&mut self, view: &View) -> Vec<u8> {
         assert!(view.end > view.start);
         // Self::log(&format!("get data {:?}", view));
         let mut res = vec![];
-        if view.start < 0 {
-            res = vec![128; 1024 * view.start.abs() as usize];
-        }
-        let start = if view.start <= 0 {
-            1
-        } else {
-            view.start as usize
-        };
-        let end = view.end as usize;
-        self.fetch_data(start);
-        self.fetch_data(end);
+        let (start, end) = (view.start, view.end);
+        self.fetch_data(view.start);
+        self.fetch_data(self.max_id.min(view.end));
         // Self::log(&format!(
         //     "i: {}, start: {}, start_id: {}, size: {}",
         //     i, start, start_id, size
@@ -144,15 +136,10 @@ impl Buffer {
                 break;
             }
         }
-        let (mut start_time, mut end_time) = (None, None);
         let data = self.buf.iter().fold(vec![], |mut acc, value| {
             let data = value.lock().unwrap();
             let data = data.iter().fold(vec![], |mut acc, value| {
                 if value.id >= start && value.id <= end {
-                    if start_time.is_none() {
-                        start_time = Some(value.time);
-                    }
-                    end_time = Some(value.time);
                     acc.extend(value.data.clone());
                 }
                 acc
@@ -161,17 +148,12 @@ impl Buffer {
             acc
         });
         res.extend(data);
+        if self.max_id + 1 < view.end {
+            res.extend(vec![128; Data::CHUNK_SIZE * (view.end - self.max_id - 1)]);
+        }
         // Self::log(&format!("data_len {}", res.len()));
         // Self::log(&format!("buf_len {}", self.buf.len()));
-        let time_range = if start_time.is_none() {
-            None
-        } else {
-            Some((start_time.unwrap(), end_time.unwrap()))
-        };
-        DataRange {
-            data: res,
-            time_range,
-        }
+        res
     }
 
     fn get_first_chunk_last_id(&self) -> Option<usize> {

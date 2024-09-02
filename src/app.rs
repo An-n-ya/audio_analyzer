@@ -43,8 +43,8 @@ struct RingBuffer {
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct View {
-    pub start: isize,
-    pub end: isize,
+    pub start: usize,
+    pub end: usize,
 }
 
 impl Default for RingBuffer {
@@ -283,13 +283,22 @@ impl TemplateApp {
 
 impl TimelineApi for TemplateApp {
     fn flush_data(&mut self) {
-        let view = View {
-            start: self.cursor_pos as isize - self.chunk_num as isize,
-            end: self.cursor_pos as isize,
+        let view = {
+            if self.cursor_pos < self.chunk_num + 1 {
+                View {
+                    start: 1,
+                    end: self.chunk_num,
+                }
+            } else {
+                View {
+                    start: self.cursor_pos - self.chunk_num,
+                    end: self.cursor_pos,
+                }
+            }
         };
-        let data_range = self.buf.get_data(&view);
-        self.data = Some(data_range.data);
-        self.range = data_range.time_range;
+        let data = self.buf.get_data(&view);
+        self.data = Some(data);
+        self.range = Some((1.0, 2.0));
     }
 
     fn time_range_span(&self) -> f32 {

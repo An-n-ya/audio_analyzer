@@ -41,6 +41,7 @@ impl Default for Data {
 
 impl Data {
     pub const MAX_SIZE: usize = 100;
+    pub const CHUNK_SIZE: usize = 1024;
     pub fn clear(&mut self) {
         self.current_chunks.clear();
         Self::request_db(|store| {
