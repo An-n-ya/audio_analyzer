@@ -24,7 +24,6 @@ pub struct TemplateApp {
     cursor_time: f64,
 
     data: Option<Vec<u8>>,
-    range: Option<(f32, f32)>,
 
     recording_start_time: f64,
 
@@ -107,7 +106,6 @@ impl Default for TemplateApp {
             cursor_time: 0.0,
             chunk_num: 10,
             data: None,
-            range: None,
             value: 2.7,
             paused: true,
         }
@@ -279,26 +277,26 @@ impl TemplateApp {
             }
         });
     }
+
+    fn current_view(&self) -> View {
+        if self.cursor_pos < self.chunk_num + 1 {
+            View {
+                start: 1,
+                end: self.chunk_num,
+            }
+        } else {
+            View {
+                start: self.cursor_pos - self.chunk_num,
+                end: self.cursor_pos - 1,
+            }
+        }
+    }
 }
 
 impl TimelineApi for TemplateApp {
     fn flush_data(&mut self) {
-        let view = {
-            if self.cursor_pos < self.chunk_num + 1 {
-                View {
-                    start: 1,
-                    end: self.chunk_num,
-                }
-            } else {
-                View {
-                    start: self.cursor_pos - self.chunk_num,
-                    end: self.cursor_pos,
-                }
-            }
-        };
-        let data = self.buf.get_data(&view);
+        let data = self.buf.get_data(&self.current_view());
         self.data = Some(data);
-        self.range = Some((1.0, 2.0));
     }
 
     fn time_range_span(&self) -> f32 {
@@ -306,16 +304,9 @@ impl TimelineApi for TemplateApp {
     }
 
     fn get_time_range(&self) -> (f32, f32) {
-        if let Some((start, end)) = self.range {
-            if start == end {
-                (0.0, self.time_range_span())
-            } else {
-                // let start = (start - 16.67).max(0.0);
-                (start, start + self.time_range_span())
-            }
-        } else {
-            (0.0, self.time_range_span())
-        }
+        let view = self.current_view();
+        let (start, end) = ((view.start - 1) as f32, (view.end - 1) as f32);
+        (start * 17.0, end * 17.0)
     }
 }
 

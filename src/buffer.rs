@@ -148,8 +148,8 @@ impl Buffer {
             acc
         });
         res.extend(data);
-        if self.max_id + 1 < view.end {
-            res.extend(vec![128; Data::CHUNK_SIZE * (view.end - self.max_id - 1)]);
+        if self.max_id < view.end {
+            res.extend(vec![128; Data::CHUNK_SIZE * (view.end - self.max_id)]);
         }
         // Self::log(&format!("data_len {}", res.len()));
         // Self::log(&format!("buf_len {}", self.buf.len()));
